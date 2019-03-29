@@ -13,16 +13,16 @@
             constructor(startX, startY) {
                 this.x = startX;
                 this.y = startY;
-                this.joints = null;
+                this.start = null;
                 this.end = null;
                 this.goal = {x: 0, y:0 };
             }
 
             addJoint(joint) {
-                if(this.joints == null) {
-                    this.joints= joint;
+                if(this.start == null) {
+                    this.start= joint;
                 } else {
-                    this.joints.add(joint);
+                    this.start.add(joint);
                 }
 
                 joint.kinematics = this;
@@ -54,7 +54,25 @@
             }
 
             forward() {
+                let cur = this.start;
 
+                cur.x = this.x;
+                cur.y = this.y;
+
+                while(cur.next != null) {
+                    var p1 = new THREE.Vector2(cur.x, cur.y);
+                    var p2 = new THREE.Vector2(cur.next.x, cur.next.y);
+
+                    p2.sub(p1);
+                    p2.normalize();
+                    p2.multiplyScalar(cur.length);
+
+                    var pos = new THREE.Vector2(p2.x + p1.x, p2.y + p1.y);
+                    cur.next.x = pos.x;
+                    cur.next.y = pos.y;
+
+                    cur = cur.next;
+                }
             }
         }
 
@@ -106,16 +124,28 @@
         var kinematics = new Kinematics(400,400);
 
         kinematics.addJoint(new Joint(100,0));
-        kinematics.addJoint(new Joint(90,90));
-        kinematics.addJoint(new Joint(90,90));
+        kinematics.addJoint(new Joint(90,0));
+        kinematics.addJoint(new Joint(90,0));
+        kinematics.addJoint(new Joint(90,0));
 
         var canvas = document.getElementById("canvas");
         var ctx = canvas.getContext("2d");
 
-        canvas.addEventListener('click', function(event) {
-            kinematics.goal.x = event.clientX - canvas.offsetLeft + window.scrollX;
-            kinematics.goal.y = event.clientY - canvas.offsetTop + window.scrollY;
+        var timeout = null;
+        var mouse = {};
+
+        canvas.addEventListener('mousemove', function(event) {
+            mouse.x = event.clientX;
+            mouse.y = event.clientY;
+
+            kinematics.goal.x = mouse.x - canvas.offsetLeft + window.scrollX;
+            kinematics.goal.y = mouse.y - canvas.offsetTop + window.scrollY;
             kinematics.backward();
+            kinematics.forward();
+        }, false);
+
+        canvas.addEventListener('mouseup', function(event) {
+            clearInterval(timeout);
         }, false);
 
         function animate() {
@@ -137,7 +167,7 @@
             ctx.fill();
             ctx.closePath();
 
-            let cur = kinematics.joints;
+            let cur = kinematics.start;
             while(cur != null) {
                 ctx.beginPath();
                 ctx.arc(cur.x, cur.y, 10, 0, 2 * Math.PI);
@@ -149,7 +179,7 @@
         }
 
         function drawLines() {
-            let cur = kinematics.joints;
+            let cur = kinematics.start;
             while(cur != null) {
 
                 ctx.beginPath();
